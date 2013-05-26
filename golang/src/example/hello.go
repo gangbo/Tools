@@ -1,6 +1,8 @@
 package main
 
+
 import "fmt"
+import "example"
 
 type S1 struct {
     a int
