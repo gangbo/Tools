@@ -1,10 +1,38 @@
 "use strict";
+if(!Array.indexOf){
+   Array.prototype.indexOf = function(Object){
+     for(var i = 0;i<this.length;i++){
+        if(this[i] == Object){
+           return i;
+         }
+     }
+     return -1;
+   }
+}
+if(!Array.maxXY){
+    Array.prototype.maxXY = function(){
+        console.log(this);
+        var maxXY = new Array(0,0);
+        console.log(this.length);
+        for(var i=0;i<this.length;i++){
+            var arr = this[i];
+            if(arr[0]>maxXY[0]){
+                maxXY[0] = arr[0];
+            }
+            if(arr[1]>maxXY[1]){
+                maxXY[1] = arr[1];
+            }
+        };
+        return maxXY;
+    }
+}
 /*
 *model 层
 */
 function DiamondsModel(width,height){
     this.width = width;
     this.height= height;
+    this.diamonds;
 
     this.init = function(){
         this.arr = new Array();
@@ -16,7 +44,82 @@ function DiamondsModel(width,height){
         }
     }
 
+    this.randomNeighbour = function(current_pos,not_direction){
+        var x = current_pos[0];
+        var y = current_pos[1];
+        var array = new Array();
+        var range = new Array(1,2,3,4);
+        range.splice(range.indexOf(not_direction),1);
+        var removed_pos;
+        var random_value = this.arrayRandom(range);
+        if( random_value==1 && y==0 ){
+            random_value = 3;
+        }
+        switch(random_value){
+            case 1:
+                array = [x,y-1];
+                removed_pos = 3;
+                break;
+            case 2:
+                array = [x+1,y];
+                removed_pos = 4;
+                break;
+            case 3:
+                array = [x,y+1];
+                removed_pos = 1;
+                break;
+            case 4:
+                array = [x-1,y];
+                removed_pos = 2;
+                break;
+        }
+        return new Array(array,removed_pos);
+    }
+
+    this.generateElement = function(x,y){
+        var element = new Array();
+        element[0] = new Array(x,y);
+        var not_direction = 3;
+        for (var i=1;i<4;i++){
+           var res = this.randomNeighbour(element[i-1],not_direction);
+           element[i] = res[0];
+           not_direction = res[1];
+        }
+        this.diamonds = element;
+    }
+
+    this.move = function(x,y){
+        if(!this.diamonds){
+            console.log("Error: diamonds is not ready");
+        }
+        var maxXY = this.diamonds.maxXY();
+        if(maxXY[0] >= this.width-1){
+            x=0;
+        }
+        if(maxXY[1] >= this.height-1){
+            return false;
+        }
+
+        for(var i=0;i<this.diamonds.length;i++){
+            this.diamonds[i][0] += x;
+            this.diamonds[i][1] += y;
+        }
+        return true;
+    }
+
+    this.arrayRandom = function (arr){
+        var random_index = Math.random();
+        var percent = 1/arr.length;
+        for(var i=0;i<arr.length; i++){
+            if( random_index>=i*percent && random_index < (i+1)*percent){
+                return arr[i];
+            }
+        }
+    }
+
+
     this.changed = function(){
+
     }
 
 }
@@ -63,12 +166,22 @@ function DiamondsView(width,height){
                 this.diamondSize-ctx.lineWidth,
                 this.diamondSize-ctx.lineWidth);
     }
-    this.turnOnDiamond = function(x,y,color){
+    this.turnOnDiamond = function(pos,color){
         var color = color?color:this.turnOnColor;
-        this.drawRect(x,y,color);
+        this.drawRect(pos[0],pos[1],color);
     }
-    this.turnOffDiamond = function(x,y){
-        this.drawRect(x,y,this.turnOffColor);
+    this.turnOffDiamond = function(pos){
+        this.drawRect(pos[0],pos[1],this.turnOffColor);
+    }
+    this.turnOnDiamonds = function (array){
+        for(var i=0;i<array.length;i++){
+            this.turnOnDiamond(array[i]);
+        }
+    }
+    this.turnOffDiamonds = function(array){
+        for(var i=0;i<array.length;i++){
+            this.turnOffDiamond(array[i]);
+        }
     }
 }
 
@@ -78,13 +191,48 @@ function DiamondsController(){
     var diamonds_model = new DiamondsModel(width,height);
     diamonds_model.init();
     diamonds_model.changed();
+    diamonds_model.generateElement(5,0);
     var diamonds_view = new DiamondsView(width,height).init();
-    diamonds_view.turnOnDiamond(2,3);
-//    diamonds_view.turnOffDiamond(2,3);
+    diamonds_view.turnOnDiamonds(diamonds_model.diamonds);
+
+    function move(x,y){
+        diamonds_view.turnOffDiamonds(diamonds_model.diamonds);
+        var is_move_ok = diamonds_model.move(x,y);
+        diamonds_view.turnOnDiamonds(diamonds_model.diamonds);
+        return is_move_ok;
+    }
+    function left(){
+        return move(1,0);
+    }
+    function right(){
+        return move(-1,0);
+    }
+    function down(){
+        return move(0,1);
+    }
     function keyDown(){
         var realkey = String.fromCharCode(event.keyCode);
         console.log("按键字符: " + realkey);
+        var move_drc; 
+        switch(realkey){
+            case '%':
+                right();
+                break;
+            case "'":
+                left();
+                break;
+            case '(':
+                down();
+                break;
+        }
     }
+    setInterval(function(){
+        if(!down()){
+            diamonds_model.generateElement(5,0);
+        }
+    },1000);
+
+    console.log(diamonds_model.diamonds.maxXY());
     document.onkeydown = keyDown;
 }
 
